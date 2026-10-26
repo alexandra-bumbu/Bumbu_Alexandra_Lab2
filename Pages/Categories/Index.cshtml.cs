@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Bumbu_Alexandra_Lab2.Models;
@@ -14,10 +14,32 @@ public class IndexModel : PageModel
         _context = context;
     }
 
-    public IList<Category> Category { get; set; } = default!;
+    public IList<Category> Category { get; set; } = new List<Category>();
 
-    public async Task OnGetAsync()
+    public int CategoryID { get; set; }
+
+    public bool IsCategorySelected { get; set; }
+
+    public List<Book> SelectedBooks { get; set; } = new List<Book>();
+
+    public async Task OnGetAsync(int? id)
     {
-        Category = await _context.Category.ToListAsync();
+        Category = await _context.Category
+            .OrderBy(c => c.CategoryName)
+            .ToListAsync();
+
+        if (id != null)
+        {
+            CategoryID = id.Value;
+            IsCategorySelected = true;
+
+            SelectedBooks = await _context.Book
+                .Include(b => b.Author)
+                .Include(b => b.BookCategories)
+                .Where(b => b.BookCategories != null &&
+                    b.BookCategories.Any(bc => bc.CategoryID == id.Value))
+                .OrderBy(b => b.Title)
+                .ToListAsync();
+        }
     }
 }

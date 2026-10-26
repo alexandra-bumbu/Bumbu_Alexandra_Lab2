@@ -20,8 +20,31 @@ public class IndexModel : PageModel
 
     public int CategoryID { get; set; }
 
-    public async Task OnGetAsync(int? id, int? categoryID)
+    public string TitleSort { get; set; } = "";
+
+    public string AuthorSort { get; set; } = "";
+
+    public string CurrentFilter { get; set; } = "";
+
+    public async Task OnGetAsync(
+        int? id,
+        int? categoryID,
+        string? sortOrder,
+        string? searchString)
     {
+        BookD = new BookData();
+
+        TitleSort = string.IsNullOrEmpty(sortOrder)
+            ? "title_desc"
+            : "";
+
+        AuthorSort = sortOrder == "author"
+            ? "author_desc"
+            : "author";
+
+        CurrentFilter = searchString ?? "";
+
+        // Incarcam cartile
         BookD.Books = await _context.Book
             .Include(b => b.Publisher)
             .Include(b => b.Author)
@@ -31,13 +54,28 @@ public class IndexModel : PageModel
             .OrderBy(b => b.Title)
             .ToListAsync();
 
+        // Cautam dupa titlu sau autor
+        if (!string.IsNullOrEmpty(searchString))
+        {
+            BookD.Books = BookD.Books
+                .Where(b =>
+                    b.Title.Contains(searchString,
+                        StringComparison.OrdinalIgnoreCase)
+                    || (b.Author != null &&
+                        (b.Author.FirstName.Contains(searchString,
+                            StringComparison.OrdinalIgnoreCase)
+                        || b.Author.LastName.Contains(searchString,
+                            StringComparison.OrdinalIgnoreCase))))
+                .ToList();
+        }
+
+        // Selectarea cartii
         if (id != null)
         {
             BookID = id.Value;
 
             Book? book = BookD.Books
-                .Where(b => b.ID == id.Value)
-                .SingleOrDefault();
+                .SingleOrDefault(b => b.ID == id.Value);
 
             if (book != null)
             {
@@ -47,9 +85,38 @@ public class IndexModel : PageModel
             }
         }
 
+        // Categoria selectata
         if (categoryID != null)
         {
             CategoryID = categoryID.Value;
+        }
+
+        // Sortarea cartilor
+        switch (sortOrder)
+        {
+            case "title_desc":
+                BookD.Books = BookD.Books
+                    .OrderByDescending(b => b.Title)
+                    .ToList();
+                break;
+
+            case "author_desc":
+                BookD.Books = BookD.Books
+                    .OrderByDescending(b => b.Author?.FullName)
+                    .ToList();
+                break;
+
+            case "author":
+                BookD.Books = BookD.Books
+                    .OrderBy(b => b.Author?.FullName)
+                    .ToList();
+                break;
+
+            default:
+                BookD.Books = BookD.Books
+                    .OrderBy(b => b.Title)
+                    .ToList();
+                break;
         }
     }
 }
